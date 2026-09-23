@@ -6,10 +6,12 @@ pkg_check_modules(DBUS REQUIRED dbus-1)
 
 set(SOURCES
     src/cli.c
+    src/log.c
     src/main.c
 )
 
 set(HEADERS
+    include/log.h
 )
 
 source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${SOURCES} ${HEADERS})
