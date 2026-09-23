@@ -1,8 +1,10 @@
 // Copyright 2026 Jannik Laugmand Bülow
 
-#include <stdio.h>
+#include "log.h"
+#include "networkmanager.h"
 
 int main(int argc, char** argv) {
-    printf("wifi");
+    nm_init();
+
     return 0;
 }
