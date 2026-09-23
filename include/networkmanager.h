@@ -19,7 +19,7 @@ void nm_shutdown(void);
 bool nm_wifi_enabled(void);
 bool nm_wifi_set_enabled(bool enabled);
 
-bool nm_scan(Network** networks, size_t* count);
+bool nm_scan(Network** out_networks, size_t* count);
 void nm_free_networks(Network* networks, size_t count);
 
 bool nm_connect(const char* ssid, const char* password);
