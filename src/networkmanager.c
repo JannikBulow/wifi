@@ -12,6 +12,11 @@ static DBusConnection* connection = NULL;
 
 static bool get_property(const char* path, const char* interface, const char* property, DBusMessageIter* value) {
     DBusMessage* message = dbus_message_new_method_call(interface, path, "org.freedesktop.DBus.Properties", "Get");
+    if (!message) {
+        log_error("Out of memory");
+        return false;
+    }
+
     dbus_message_append_args(message,
         DBUS_TYPE_STRING, &interface,
         DBUS_TYPE_STRING, &property,
@@ -34,8 +39,9 @@ static bool get_property(const char* path, const char* interface, const char* pr
     DBusMessageIter iter;
     dbus_message_iter_init(reply, &iter);
 
+    dbus_message_unref(reply);
+
     if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
-        dbus_message_unref(reply);
         return false;
     }
 
@@ -92,7 +98,35 @@ bool nm_wifi_enabled(void) {
     return enabled;
 }
 
-bool nm_wifi_set_enabled(bool enabled) {}
+bool nm_wifi_set_enabled(bool _enabled) {
+    DBusMessage* message = dbus_message_new_method_call(NETWORKMANAGER_INTERFACE, NETWORKMANAGER_PATH, NETWORKMANAGER_INTERFACE, "Enable");
+    if (!message) {
+        log_error("Out of memory");
+        return false;
+    }
+
+    dbus_bool_t enabled = _enabled;
+    dbus_message_append_args(message,
+        DBUS_TYPE_BOOLEAN, &enabled,
+        DBUS_TYPE_INVALID
+    );
+
+    DBusError error;
+    dbus_error_init(&error);
+
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, message, -1, &error);
+
+    dbus_message_unref(message);
+
+    if (dbus_error_is_set(&error)) {
+        log_error("D-Bus error: %s", error.message);
+        dbus_error_free(&error);
+        return false;
+    }
+
+    dbus_message_unref(reply);
+    return true;
+}
 
 bool nm_scan(Network** networks, size_t* count) {}
 
