@@ -8,9 +8,11 @@ set(SOURCES
     src/cli.c
     src/log.c
     src/main.c
+    src/networkmanager.c
 )
 
 set(HEADERS
+    include/networkmanager.h
     include/log.h
 )
 
