@@ -515,7 +515,12 @@ bool nm_scan(Network** out_networks, size_t* count) {
     return true;
 }
 
-void nm_free_networks(Network* networks, size_t count) {}
+void nm_free_networks(Network* networks, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        free(networks[i].ssid);
+    }
+    free(networks);
+}
 
 bool nm_connect(const char* ssid, const char* password) {}
 
