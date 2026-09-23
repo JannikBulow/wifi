@@ -522,7 +522,152 @@ void nm_free_networks(Network* networks, size_t count) {
     free(networks);
 }
 
-bool nm_connect(const char* ssid, const char* password) {}
+bool nm_connect(const char* ssid, const char* password) {
+    char* wifi_device_path;
+    if (!get_wifi_device_path(&wifi_device_path)) {
+        log_error("Failed to get wifi device");
+        return false;
+    }
+
+    DBusMessage* message =  dbus_message_new_method_call(NETWORKMANAGER_INTERFACE, NETWORKMANAGER_PATH, NETWORKMANAGER_INTERFACE, "AddAndActivateConnection");
+    if (!message) {
+        log_error("Out of memory");
+        return false;
+    }
+
+    DBusMessageIter iter;
+    dbus_message_iter_init_append(message, &iter);
+
+    DBusMessageIter settings;
+    dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sa{sv}}", &settings);
+
+    DBusMessageIter entry;
+    dbus_message_iter_open_container(&settings, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+
+    const char* key = "connection";
+    dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key);
+
+    DBusMessageIter dict;
+    dbus_message_iter_open_container(&entry, DBUS_TYPE_ARRAY, "{sv}", &dict);
+
+    DBusMessageIter property;
+    dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &property);
+
+    const char* property_name = "id";
+    dbus_message_iter_append_basic(&property, DBUS_TYPE_STRING, &property_name);
+
+    DBusMessageIter variant;
+    dbus_message_iter_open_container(&property, DBUS_TYPE_VARIANT, "s", &variant);
+
+    dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &ssid);
+
+    dbus_message_iter_close_container(&property, &variant);
+    dbus_message_iter_close_container(&dict, &property);
+
+
+    dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &property);
+
+    property_name = "type";
+    dbus_message_iter_append_basic(&property, DBUS_TYPE_STRING, &property_name);
+
+    dbus_message_iter_open_container(&property, DBUS_TYPE_VARIANT, "s", &variant);
+
+    const char* type = "802-11-wireless";
+    dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &type);
+
+    dbus_message_iter_close_container(&property, &variant);
+    dbus_message_iter_close_container(&dict, &property);
+
+    dbus_message_iter_close_container(&entry, &dict);
+    dbus_message_iter_close_container(&settings, &entry);
+
+    dbus_message_iter_open_container(&settings, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+
+
+    key = "802-11-wireless";
+    dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key);
+
+    dbus_message_iter_open_container(&entry, DBUS_TYPE_ARRAY, "{sv}", &dict);
+
+    dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &property);
+
+    property_name = "ssid";
+    dbus_message_iter_append_basic(&property, DBUS_TYPE_STRING, &property_name);
+
+    dbus_message_iter_open_container(&property, DBUS_TYPE_VARIANT, "ay", &variant);
+
+    DBusMessageIter ssid_array;
+    dbus_message_iter_open_container(&variant, DBUS_TYPE_ARRAY, "y", &ssid_array);
+
+    const unsigned char* ssid_bytes = (const unsigned char*) ssid;
+    dbus_message_iter_append_fixed_array(&ssid_array, DBUS_TYPE_BYTE, &ssid_bytes, strlen(ssid));
+
+    dbus_message_iter_close_container(&variant, &ssid_array);
+    dbus_message_iter_close_container(&property, &variant);
+    dbus_message_iter_close_container(&dict, &property);
+
+    dbus_message_iter_close_container(&entry, &dict);
+    dbus_message_iter_close_container(&settings, &entry);
+
+    dbus_message_iter_open_container(&settings, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+
+
+    key = "802-11-wireless-security";
+    dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key);
+
+    dbus_message_iter_open_container(&entry, DBUS_TYPE_ARRAY, "{sv}", &dict);
+
+    dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &property);
+
+    property_name = "key-mgmt";
+    dbus_message_iter_append_basic(&property, DBUS_TYPE_STRING, &property_name);
+
+    dbus_message_iter_open_container(&property, DBUS_TYPE_VARIANT, "s", &variant);
+
+    const char* property_value = "wpa-psk";
+    dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &property_value);
+
+    dbus_message_iter_close_container(&property, &variant);
+    dbus_message_iter_close_container(&dict, &property);
+
+    dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &property);
+
+    property_name = "psk";
+    dbus_message_iter_append_basic(&property, DBUS_TYPE_STRING, &property_name);
+
+    dbus_message_iter_open_container(&property, DBUS_TYPE_VARIANT, "s", &variant);
+
+    property_value = password;
+    dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &property_value);
+
+    dbus_message_iter_close_container(&property, &variant);
+    dbus_message_iter_close_container(&dict, &property);
+
+    dbus_message_iter_close_container(&entry, &dict);
+    dbus_message_iter_close_container(&settings, &entry);
+
+    dbus_message_iter_close_container(&iter, &settings);
+
+    dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &wifi_device_path);
+    const char* slash = "/";
+    dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &slash);
+
+    DBusError error;
+    dbus_error_init(&error);
+
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, message, -1, &error);
+
+    dbus_message_unref(message);
+
+    if (dbus_error_is_set(&error)) {
+        log_error("D-Bus error: %s", error.message);
+        dbus_error_free(&error);
+        free(wifi_device_path);
+        return false;
+    }
+
+    dbus_message_unref(reply);
+}
 
 bool nm_disconnect(void) {}
 
