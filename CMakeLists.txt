@@ -12,6 +12,7 @@ set(SOURCES
 )
 
 set(HEADERS
+    include/cli.h
     include/networkmanager.h
     include/log.h
 )
