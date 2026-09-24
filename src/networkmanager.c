@@ -529,9 +529,10 @@ bool nm_connect(const char* ssid, const char* password) {
         return false;
     }
 
-    DBusMessage* message =  dbus_message_new_method_call(NETWORKMANAGER_INTERFACE, NETWORKMANAGER_PATH, NETWORKMANAGER_INTERFACE, "AddAndActivateConnection");
+    DBusMessage* message = dbus_message_new_method_call(NETWORKMANAGER_INTERFACE, NETWORKMANAGER_PATH, NETWORKMANAGER_INTERFACE, "AddAndActivateConnection");
     if (!message) {
         log_error("Out of memory");
+        free(wifi_device_path);
         return false;
     }
 
@@ -667,6 +668,8 @@ bool nm_connect(const char* ssid, const char* password) {
     }
 
     dbus_message_unref(reply);
+    free(wifi_device_path);
+    return true;
 }
 
 bool nm_disconnect(void) {
