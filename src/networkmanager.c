@@ -821,4 +821,33 @@ bool nm_forget(const char* ssid) {
 
                                 DBusMessage* delete_reply = dbus_connection_send_with_reply_and_block(connection, message, -1, &error);
 
-bool nm_forget(const char* ssid) {}
+                                dbus_message_unref(message);
+
+                                if (dbus_error_is_set(&error)) {
+                                    log_error("D-Bus error: %s", error.message);
+                                    dbus_error_free(&error);
+                                    dbus_message_unref(settings_reply);
+                                    dbus_message_unref(reply);
+                                    return false;
+                                }
+
+                                dbus_message_unref(delete_reply);
+                            }
+                        }
+                    }
+
+                    dbus_message_iter_next(&properties);
+                }
+            }
+
+            dbus_message_iter_next(&settings);
+        }
+
+        dbus_message_unref(settings_reply);
+
+        dbus_message_iter_next(&connections);
+    }
+
+    dbus_message_unref(reply);
+    return true;
+}
