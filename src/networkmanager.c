@@ -669,6 +669,153 @@ bool nm_connect(const char* ssid, const char* password) {
     dbus_message_unref(reply);
 }
 
-bool nm_disconnect(void) {}
+bool nm_disconnect(void) {
+    char* wifi_device_path;
+    if (!get_wifi_device_path(&wifi_device_path)) {
+        log_error("Failed to get wifi device");
+        return false;
+    }
+
+    DBusMessage* message = dbus_message_new_method_call(NETWORKMANAGER_INTERFACE, NETWORKMANAGER_PATH, NETWORKMANAGER_INTERFACE ".Device", "Disconnect");
+    if (!message) {
+        log_error("Out of memory");
+        free(wifi_device_path);
+        return false;
+    }
+
+    DBusError error;
+    dbus_error_init(&error);
+
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, message, -1, &error);
+
+    dbus_message_unref(message);
+
+    if (dbus_error_is_set(&error)) {
+        log_error("D-Bus error: %s", error.message);
+        dbus_error_free(&error);
+        free(wifi_device_path);
+        return false;
+    }
+
+    dbus_message_unref(reply);
+    free(wifi_device_path);
+    return true;
+}
+
+bool nm_forget(const char* ssid) {
+    DBusMessage* message = dbus_message_new_method_call(NETWORKMANAGER_INTERFACE, NETWORKMANAGER_PATH "/Settings", NETWORKMANAGER_INTERFACE ".Settings", "ListConnections");
+    if (!message) {
+        log_error("Out of memory");
+        return false;
+    }
+
+    DBusError error;
+    dbus_error_init(&error);
+
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, message, -1, &error);
+
+    dbus_message_unref(message);
+
+    if (dbus_error_is_set(&error)) {
+        log_error("D-Bus error: %s", error.message);
+        dbus_error_free(&error);
+        return false;
+    }
+
+    DBusMessageIter iter;
+    dbus_message_iter_init(reply, &iter);
+
+    if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY) {
+        dbus_message_unref(reply);
+        return false;
+    }
+
+    DBusMessageIter connections;
+    dbus_message_iter_recurse(&iter, &connections);
+
+    while (dbus_message_iter_get_arg_type(&connections) != DBUS_TYPE_INVALID) {
+        const char* path;
+        dbus_message_iter_get_basic(&connections, &path);
+
+        DBusMessage* message = dbus_message_new_method_call(NETWORKMANAGER_INTERFACE, path, NETWORKMANAGER_INTERFACE ".Settings.Connection", "GetSettings");
+        if (!message) {
+            log_error("Out of memory");
+            dbus_message_unref(reply);
+            return false;
+        }
+
+        dbus_error_init(&error);
+
+        DBusMessage* settings_reply = dbus_connection_send_with_reply_and_block(connection, message, -1, &error);
+
+        dbus_message_unref(message);
+
+        if (dbus_error_is_set(&error)) {
+            log_error("D-Bus error: %s", error.message);
+            dbus_error_free(&error);
+            dbus_message_unref(reply);
+            return false;
+        }
+
+        DBusMessageIter iter;
+        dbus_message_iter_init(settings_reply, &iter);
+
+        if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY) {
+            dbus_message_unref(settings_reply);
+            dbus_message_unref(reply);
+            return false;
+        }
+
+        DBusMessageIter settings;
+        dbus_message_iter_recurse(&iter, &settings);
+
+        while (dbus_message_iter_get_arg_type(&settings) != DBUS_TYPE_INVALID) {
+            DBusMessageIter entry;
+            dbus_message_iter_recurse(&settings, &entry);
+
+            const char* section;
+            dbus_message_iter_get_basic(&entry, &section);
+
+            dbus_message_iter_next(&entry);
+
+            DBusMessageIter properties;
+            dbus_message_iter_recurse(&entry, &properties);
+
+            if (strcmp(section, "802-11-wireless") == 0) {
+                while (dbus_message_iter_get_arg_type(&properties) != DBUS_TYPE_INVALID) {
+                    DBusMessageIter property;
+                    dbus_message_iter_recurse(&properties, &property);
+
+                    const char* property_name;
+                    dbus_message_iter_get_basic(&property, &property_name);
+
+                    dbus_message_iter_next(&property);
+
+                    if (strcmp(property_name, "ssid") == 0) {
+                        DBusMessageIter variant;
+                        dbus_message_iter_recurse(&property, &variant);
+
+                        if (dbus_message_iter_get_arg_type(&variant) == DBUS_TYPE_ARRAY && dbus_message_iter_get_element_type(&variant) == DBUS_TYPE_BYTE) {
+                            DBusMessageIter bytes;
+                            dbus_message_iter_recurse(&variant, &bytes);
+
+                            unsigned char* data;
+                            int length;
+                            dbus_message_iter_get_fixed_array(&bytes, &data, &length);
+
+                            size_t ssid_length = strlen(ssid);
+
+                            if (length == ssid_length && memcmp(ssid, data, ssid_length) == 0) {
+                                DBusMessage* message = dbus_message_new_method_call(NETWORKMANAGER_INTERFACE, path, NETWORKMANAGER_INTERFACE ".Settings.Connection", "Delete");
+                                if (!message) {
+                                    log_error("Out of memory");
+                                    dbus_message_unref(settings_reply);
+                                    dbus_message_unref(reply);
+                                    return false;
+                                }
+
+                                dbus_error_init(&error);
+
+                                DBusMessage* delete_reply = dbus_connection_send_with_reply_and_block(connection, message, -1, &error);
 
 bool nm_forget(const char* ssid) {}
